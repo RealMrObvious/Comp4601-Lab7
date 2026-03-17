@@ -50,6 +50,8 @@ app.get('/:dataset', async function (req, res) {
     });
 });
 
+
+// This is the function on slide 11 of lecture 8 [sim(a,b)=...]
 function calculateSimilarities(user_a_index, user_b_index, dataset) {
     let num_items = dataset.num_items;
     let matrix = dataset.matrix;
@@ -83,7 +85,15 @@ function calculateSimilarities(user_a_index, user_b_index, dataset) {
 }
 
 
-//Returns a matrix with the similarity scores between each neighbour
+// Returns a matrix with the similarity scores between each neighbour
+// Each row is a neighbourhood. Each score represents sim(x,y)
+// Example numbers
+//         a     b     c     d
+// a      0.00  0.83  0.41  0.65
+// b      0.83  0.00  0.38  0.59
+// c      0.41  0.38  0.00  0.27
+// d      0.65  0.59  0.27  0.00
+
 function calculateNeighbourMatrix(dataset) {
     let num_users = dataset.num_users;
     let neighbour_matrix = math.zeros(num_users, num_users)
@@ -101,6 +111,15 @@ function calculateNeighbourMatrix(dataset) {
     return neighbour_matrix
 }
 
+// Takes a row from the neighbourhood matrix (made from calculateNeighbourMatrix()) 
+// and returns the top <neighborhood_size> neighbours as an array of indices for each neighbour
+//
+// ie. row for user a
+//         a     b     c     d
+// a       0    0.83  0.41  0.65
+//
+// It then loops through and returns the top scores indices
+// so it'd return indices for b & d -> so it returns [1,3]
 function getNeighbourhood(user_index, matrix, neighborhood_size = 2) {
     // Extract the col as a regular array
     const col = matrix.subset(math.index(math.range(0, matrix.size()[0]), user_index)).toArray();
@@ -129,14 +148,15 @@ function getNeighbourhood(user_index, matrix, neighborhood_size = 2) {
     return topIndices
 }
 
+
+// This is the function on slide 15 of lecture 8 [pred(a,p)=...]
 function predict(user_index, item_index, dataset) {
     let score = 0
-    let base_matrix = dataset.matrix
-    let avg_rating = getAvgRating(user_index, base_matrix)
-    let neighbour_matrix = calculateNeighbourMatrix(dataset)
-    let neighbours = getNeighbourhood(user_index, neighbour_matrix)
+    let base_matrix = dataset.matrix                                     //matrix from text file
+    let avg_rating = getAvgRating(user_index, base_matrix)               //avg rating for a user
+    let neighbour_matrix = calculateNeighbourMatrix(dataset)             //matrix with all the sim scores
+    let neighbours = getNeighbourhood(user_index, neighbour_matrix)      //top values in a row from ^^ matrix
 
-    
     let numerator = 0
     let denominator = 0
     for (let n of neighbours) {
@@ -163,7 +183,7 @@ function predict(user_index, item_index, dataset) {
     return avg_rating + score
 }
 
-
+//returns the average rating for a user/row (aka rowIndex)
 function getAvgRating(rowIndex, matrix) {
     // Extract the row as a regular array
     const row = matrix.subset(

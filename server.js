@@ -52,27 +52,25 @@ app.get('/:dataset', async function (req, res) {
 
 
 // This is the function on slide 11 of lecture 8 [sim(a,b)=...]
-function calculateSimilarities(user_a_index, user_b_index, dataset) {
+function calculateSimilarities(item_a_index, item_b_index, dataset) {
     let num_items = dataset.num_items;
     let matrix = dataset.matrix;
-    let user_a_avg_rating = dataset.avgRating[user_a_index]
-    let user_b_avg_rating = dataset.avgRating[user_b_index]
 
     let numerator = 0;
     let denominator_a = 0;
     let denominator_b = 0;
 
-    for (let i = 0; i < num_items; i++) {
-        user_a_rating = matrix.get([user_a_index, i])
-        user_b_rating = matrix.get([user_b_index, i])
+    for (let i = 0; i < num_users; i++) {
+        item_a_rating = matrix.get([i, item_a_index])
+        item_b_rating = matrix.get([i, item_b_index])
 
         //Numerator
-        if (user_a_rating != -1 && user_b_rating != -1) {
-            numerator += (user_a_rating - user_a_avg_rating) * (user_b_rating - user_b_avg_rating)
+        if (item_a_rating != -1 && item_b_rating != -1) {
+            numerator += item_a_rating * item_b_rating - user_b_avg_rating
 
             //Denominator
-            denominator_a += Math.pow((user_a_rating - user_a_avg_rating), 2)
-            denominator_b += Math.pow((user_b_rating - user_b_avg_rating), 2)
+            denominator_a += Math.pow(item_a_rating, 2)
+            denominator_b += Math.pow(item_b_rating, 2)
         }
     }
 
@@ -95,11 +93,11 @@ function calculateSimilarities(user_a_index, user_b_index, dataset) {
 // d      0.65  0.59  0.27  0.00
 
 function calculateNeighbourMatrix(dataset) {
-    let num_users = dataset.num_users;
-    let neighbour_matrix = math.zeros(num_users, num_users)
+    let num_items = dataset.num_items;
+    let neighbour_matrix = math.zeros(num_items, num_items)
 
-    for (let a = 0; a < num_users; a++) {
-        for (let b = 0; b < num_users; b++) {
+    for (let a = 0; a < num_items; a++) {
+        for (let b = 0; b < num_items; b++) {
             if (a == b) { continue; }
 
             let similarity = calculateSimilarities(a, b, dataset)
@@ -120,9 +118,9 @@ function calculateNeighbourMatrix(dataset) {
 //
 // It then loops through and returns the top scores indices
 // so it'd return indices for b & d -> so it returns [1,3]
-function getNeighbourhood(user_index, matrix, neighborhood_size = 2) {
+function getNeighbourhood(item_index, matrix, neighborhood_size = 2) {
     // Extract the col as a regular array
-    const col = matrix.subset(math.index(math.range(0, matrix.size()[0]), user_index)).toArray();
+    const col = matrix.subset(math.index(math.range(0, matrix.size()[0]), item_index)).toArray();
 
     let topIndices = new Array(neighborhood_size).fill(-1); // Array to store indices of top k largest elements
     let topValues = new Array(neighborhood_size).fill(-Infinity); // Array to store the values of top k largest elements
@@ -153,50 +151,44 @@ function getNeighbourhood(user_index, matrix, neighborhood_size = 2) {
 function predict(user_index, item_index, dataset) {
     let score = 0
     let base_matrix = dataset.matrix                                     //matrix from text file
-    let avg_rating = getAvgRating(user_index, base_matrix)               //avg rating for a user
     let neighbour_matrix = calculateNeighbourMatrix(dataset)             //matrix with all the sim scores
-    let neighbours = getNeighbourhood(user_index, neighbour_matrix)      //top values in a row from ^^ matrix
+    let neighbours = getNeighbourhood(item_index, neighbour_matrix)      //top values in a row from ^^ matrix
 
     let numerator = 0
     let denominator = 0
     for (let n of neighbours) {
         //Numerator
-        let sim_score = neighbour_matrix.get([user_index, n])
-        let n_rating = base_matrix.get([n, item_index])
+        let sim_score = neighbour_matrix.get([item_index, n])
+        let n_rating = base_matrix.get([user_index, n])
 
         if (n_rating == -1) {
             continue
-        } else {
-            n_rating = n_rating - getAvgRating(n, base_matrix)
         }
-
-        numerator += (sim_score * n_rating)
-
-        //Denominator
-        sim_score = neighbour_matrix.get([user_index, n])
+        
+        //denominator
         denominator += sim_score
     }
 
-    if (denominator === 0) return avg_rating;
+    if (denominator === 0) return getAvgRating(item_index, base_matrix);
     score = numerator / denominator
 
     return avg_rating + score
 }
 
 //returns the average rating for a user/row (aka rowIndex)
-function getAvgRating(rowIndex, matrix) {
+function getAvgRating(colIndex, matrix) {
     // Extract the row as a regular array
-    const row = matrix.subset(
-        math.index(rowIndex, math.range(0, matrix.size()[1]))
+    const col = matrix.subset(
+        math.index(rowIndex, math.range(0, matrix.size()[0], colIndex))
     ).toArray();
 
     let sum = 0
     let num_ratings = 0
 
     //Sum all values != -1
-    for (let i = 0; i < row.length; i++) {
+    for (let i = 0; i < col.length; i++) {
         if (row[i] != -1) {
-            sum += row[i];
+            sum += col[i];
             num_ratings += 1
         }
     }

@@ -53,7 +53,7 @@ app.get('/:dataset', async function (req, res) {
 
 // This is the function on slide 11 of lecture 8 [sim(a,b)=...]
 function calculateSimilarities(item_a_index, item_b_index, dataset) {
-    let num_items = dataset.num_items;
+    let num_users = dataset.num_users;
     let matrix = dataset.matrix;
 
     let numerator = 0;
@@ -61,12 +61,12 @@ function calculateSimilarities(item_a_index, item_b_index, dataset) {
     let denominator_b = 0;
 
     for (let i = 0; i < num_users; i++) {
-        item_a_rating = matrix.get([i, item_a_index])
-        item_b_rating = matrix.get([i, item_b_index])
+        let item_a_rating = matrix.get([i, item_a_index])
+        let item_b_rating = matrix.get([i, item_b_index])
 
         //Numerator
         if (item_a_rating != -1 && item_b_rating != -1) {
-            numerator += item_a_rating * item_b_rating - user_b_avg_rating
+            numerator += item_a_rating * item_b_rating
 
             //Denominator
             denominator_a += Math.pow(item_a_rating, 2)
@@ -75,6 +75,8 @@ function calculateSimilarities(item_a_index, item_b_index, dataset) {
     }
 
     let denominator = Math.sqrt(denominator_a) * Math.sqrt(denominator_b)
+    if (denominator === 0) return 0;
+    
     let score = numerator / denominator
 
     // console.log("Final score: ", numerator, denominator, score)
@@ -164,6 +166,8 @@ function predict(user_index, item_index, dataset) {
         if (n_rating == -1) {
             continue
         }
+
+        numerator += sim_score * n_rating;
         
         //denominator
         denominator += sim_score
@@ -172,14 +176,14 @@ function predict(user_index, item_index, dataset) {
     if (denominator === 0) return getAvgRating(item_index, base_matrix);
     score = numerator / denominator
 
-    return avg_rating + score
+    return score
 }
 
 //returns the average rating for a user/row (aka rowIndex)
 function getAvgRating(colIndex, matrix) {
     // Extract the row as a regular array
     const col = matrix.subset(
-        math.index(rowIndex, math.range(0, matrix.size()[0], colIndex))
+        math.index(math.range(0, matrix.size()[0]), colIndex)
     ).toArray();
 
     let sum = 0
@@ -187,7 +191,7 @@ function getAvgRating(colIndex, matrix) {
 
     //Sum all values != -1
     for (let i = 0; i < col.length; i++) {
-        if (row[i] != -1) {
+        if (col[i] != -1) {
             sum += col[i];
             num_ratings += 1
         }

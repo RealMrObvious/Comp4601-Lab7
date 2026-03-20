@@ -38,7 +38,7 @@ app.get('/:dataset', async function (req, res) {
     let source = ''
 
     if (score == -1) {
-        score = predict(user_index, item_index, data).toFixed(2)
+        score = predict(user_index, item_index, data)
         source = 'guess'
     } else {
         source = 'truth'
@@ -55,6 +55,7 @@ app.get('/:dataset', async function (req, res) {
 function calculateSimilarities(item_a_index, item_b_index, dataset) {
     let num_users = dataset.num_users;
     let matrix = dataset.matrix;
+    let user_avg = 0;
 
     let numerator = 0;
     let denominator_a = 0;
@@ -63,14 +64,15 @@ function calculateSimilarities(item_a_index, item_b_index, dataset) {
     for (let i = 0; i < num_users; i++) {
         let item_a_rating = matrix.get([i, item_a_index])
         let item_b_rating = matrix.get([i, item_b_index])
+        user_avg = dataset.avgRating[i]
 
         //Numerator
         if (item_a_rating != -1 && item_b_rating != -1) {
-            numerator += item_a_rating * item_b_rating
+            numerator += (item_a_rating - user_avg) * (item_b_rating - user_avg)
 
             //Denominator
-            denominator_a += Math.pow(item_a_rating, 2)
-            denominator_b += Math.pow(item_b_rating, 2)
+            denominator_a += Math.pow(item_a_rating - user_avg, 2)
+            denominator_b += Math.pow(item_b_rating - user_avg, 2)
         }
     }
 
@@ -160,6 +162,11 @@ function predict(user_index, item_index, dataset) {
     let denominator = 0
     for (let n of neighbours) {
         //Numerator
+
+        if (n <= 0) {
+            continue;
+        }
+
         let sim_score = neighbour_matrix.get([item_index, n])
         let n_rating = base_matrix.get([user_index, n])
 
@@ -203,6 +210,29 @@ function getAvgRating(colIndex, matrix) {
     return sum / num_ratings;
 }
 
+function getUserAvgRating(rowIndex, matrix) {
+    // Extract the row as a regular array
+    const row = matrix.subset(
+        math.index(rowIndex, math.range(0, matrix.size()[1]))
+    ).toArray();
+
+    let sum = 0
+    let num_ratings = 0
+
+    //Sum all values !=
+    for (let i = 0; i < row.length; i++) {
+        if (row[i] != -1) {
+            sum += row[i];
+            num_ratings += 1
+        }
+    }
+
+    if (num_ratings == 0) return 0
+
+    // Compute average
+    return sum / num_ratings;
+}
+
 function readFiles(filePath) {
     let file_data = fs.readFileSync(filePath, 'utf8').trim().split("\n");
 
@@ -216,7 +246,7 @@ function readFiles(filePath) {
     };
 
     for (let i = 0; i < data.num_users; i++) {
-        data.avgRating.push(getAvgRating(i, data.matrix))
+        data.avgRating.push(getUserAvgRating(i, data.matrix))
     }
 
     return data;
